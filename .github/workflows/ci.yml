@@ -2,10 +2,15 @@ name: CI
 
 on:
   push:
-    branches: [ main, 'release/**' ]
+    branches: [ main, "releases/**" ]
   pull_request:
-    branches: [ main, 'release/**' ]
-
+    branches: [ main, "releases/**" ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version à publier'
+        required: true
+        
 permissions:
   contents: read
 
@@ -22,8 +27,45 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Cache des paquets NuGet
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
       - name: Restaurer les dépendances
         run: dotnet restore
 
       - name: Compiler
         run: dotnet build --no-restore --configuration Release
+
+      - name: Exécuter les tests
+        run: >
+          dotnet test --no-build --configuration Release
+          --logger "trx;LogFileName=resultats.trx"
+          --collect:"XPlat Code Coverage"
+          --results-directory ./TestResults
+
+      - name: Publier les résultats de tests
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: resultats-tests
+          path: ./TestResults
+          retention-days: 30
+
+      - name: Publier l'application
+        run: >
+          dotnet publish testsWorkflows/testsWorkflows.csproj
+          --configuration Release
+          --output ./publication
+          --no-build
+
+      - name: Téléverser les binaires
+        uses: actions/upload-artifact@v7
+        with:
+          name: testsWorkflows-${{ github.sha }}
+          path: ./publication
+          retention-days: 90
