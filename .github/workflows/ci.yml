@@ -53,7 +53,7 @@ jobs:
 
       - name: Publier l'application
         run: >
-          dotnet publish src/testsWorkflows/testsWorkflows.csproj
+          dotnet publish testsWorkflows/testsWorkflows.csproj
           --configuration Release
           --output ./publication
           --no-build
